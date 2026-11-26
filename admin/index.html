@@ -26,6 +26,9 @@ button{cursor:pointer}
 
 /* ---------- login ---------- */
 #login{align-items:center;justify-content:space-between;padding:54px 28px calc(28px + var(--safeb));background:radial-gradient(120% 55% at 50% 0%,rgba(255,79,163,.16) 0%,var(--bg) 62%)}
+#vClave{align-items:center;justify-content:flex-start;gap:26px;padding:54px 24px calc(28px + var(--safeb));background:radial-gradient(120% 55% at 50% 0%,rgba(255,79,163,.16) 0%,var(--bg) 62%)}
+#vClave .lg-top p{text-transform:none;letter-spacing:.2px;font-size:14px;margin-top:8px}
+#vClave .f{text-align:left}
 .lg-top{text-align:center}
 .lg-logo{width:104px;height:104px;border-radius:50%;object-fit:cover;border:1px solid var(--line2);box-shadow:0 0 0 3px rgba(217,222,229,.18),var(--sh);background:#000}
 .lg-top h1{font-size:28px;font-weight:800;margin-top:16px;letter-spacing:.3px}
@@ -40,6 +43,7 @@ button{cursor:pointer}
 .err{color:var(--bad);font-size:13px;min-height:20px;margin:8px 0 6px}
 .shake{animation:shake .4s}
 @keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.lnk{background:none;border:0;color:var(--rosa);font-size:13.5px;font-weight:600;margin-top:14px;padding:6px}
 .lg-note{font-size:12px;color:var(--mut);margin-top:12px}
 
 /* ---------- cabecera ---------- */
@@ -207,12 +211,36 @@ select option{background:var(--card2);color:var(--txt)}
   <form class="lg-pin" id="pinForm" autocomplete="off" novalidate>
     <label class="lbl" for="pinIn">Escribe tu clave para entrar</label>
     <div class="pinbox">
-      <input id="pinIn" type="password" inputmode="text" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" maxlength="12" enterkeyhint="go" aria-label="Clave">
+      <input id="pinIn" type="password" inputmode="text" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" maxlength="20" enterkeyhint="go" aria-label="Clave">
       <button type="button" class="eye" id="pinEye" aria-label="Mostrar clave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
     </div>
     <div class="err" id="pinErr" role="alert"></div>
     <button class="btn" type="submit" id="pinGo">Entrar</button>
     <p class="lg-note">Letras y números. No importa si usas mayúsculas o minúsculas.</p>
+    <button type="button" class="lnk" id="olvBtn">¿Olvidaste tu clave?</button>
+  </form>
+  <div></div>
+</section>
+
+<!-- ============ CLAVE (crear, cambiar, recuperar) ============ -->
+<section id="vClave" class="scr hide">
+  <div class="lg-top">
+    <h1 class="serif" id="kT">Crea tu clave</h1>
+    <p id="kP">Solo tú la sabrás. Mínimo 8 letras o números.</p>
+  </div>
+  <form class="lg-pin" id="kForm" autocomplete="off" novalidate>
+    <div id="kPaso1" class="hide">
+      <p class="lg-note" id="kCorreoTx" style="margin-bottom:14px">Te enviamos un código de 6 números al correo de la tienda.</p>
+      <button type="button" class="btn" id="kEnviar">Enviar código a mi correo</button>
+      <div class="f hide" id="kCodF" style="margin-top:14px"><label for="kCod">Código del correo</label><input id="kCod" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code"></div>
+    </div>
+    <div id="kNuevas">
+      <div class="f"><label for="kN1">Clave nueva</label><input id="kN1" type="password" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="20" placeholder="Mínimo 8 caracteres"></div>
+      <div class="f"><label for="kN2">Repite la clave</label><input id="kN2" type="password" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="20"></div>
+    </div>
+    <div class="err" id="kErr" role="alert"></div>
+    <button class="btn" type="submit" id="kGo">Guardar clave</button>
+    <button class="btn2" type="button" id="kNo" style="margin-top:10px">Cancelar</button>
   </form>
   <div></div>
 </section>

@@ -19,7 +19,8 @@
  */
 
 const AJUSTES = {
-  ADMIN_PIN: '',                                     // ← PIN del dueño (4 a 6 números)
+  ADMIN_PIN: '',                                     // ← clave del dueño (se cambia desde la app)
+  ADMIN_EMAIL: 'probandosigue@gmail.com',            // ← correo que recibe el código si olvida la clave
   FOTOS_FOLDER_ID: '1-2vdm5LW4f8gqyp9zm7Slcf6sD3mIMHf' // carpeta "Fotos" de Destellos Shop
 };
 function ajuste(k) {
@@ -39,7 +40,7 @@ function doGet(e) {
   return responder(() => {
     const p = (e && e.parameter) || {};
     revisarPin(p.pin);
-    if (p.accion === 'ping') return { ok: true };
+    if (p.accion === 'ping') return { ok: true, cambiar: String(ajuste('ADMIN_PIN')).trim().length < MIN_CLAVE };
     if (p.accion === 'listar') return { ok: true, config: leerConfig(), productos: leerProductos() };
     throw new Error('Acción desconocida');
   });
@@ -48,6 +49,9 @@ function doGet(e) {
 function doPost(e) {
   return responder(() => {
     const d = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    // Acciones SIN clave: recuperar por correo
+    if (d.accion === 'olvide') return enviarCodigo();
+    if (d.accion === 'restablecer') return restablecer(d.codigo, d.nueva);
     revisarPin(d.pin);
     const lock = LockService.getScriptLock();
     lock.waitLock(20000);
@@ -72,13 +76,79 @@ function responder(fn) {
   return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);
 }
 
+/* ======================= seguridad ======================= */
+const MIN_CLAVE = 8;        // largo mínimo de una clave nueva
+const MAX_FALLOS = 5;       // intentos antes de bloquear
+const BLOQUEO_SEG = 900;    // 15 minutos
+const cache = () => CacheService.getScriptCache();
+
+function errorCod(msg, code) { const e = new Error(msg); e.code = code; return e; }
+
+function revisarBloqueo(tipo) {
+  if (cache().get('bloq_' + tipo)) throw errorCod('Demasiados intentos. Espera 15 minutos o usa "¿Olvidaste tu clave?"', 'BLOQ');
+}
+function sumarFallo(tipo) {
+  const c = cache(), k = 'fallos_' + tipo, n = Number(c.get(k) || 0) + 1;
+  if (n >= MAX_FALLOS) { c.put('bloq_' + tipo, '1', BLOQUEO_SEG); c.remove(k); }
+  else c.put(k, String(n), BLOQUEO_SEG);
+  return MAX_FALLOS - n;
+}
+
 function revisarPin(pin) {
   const real = ajuste('ADMIN_PIN');
-  if (!real) throw new Error('Falta configurar ADMIN_PIN (propiedad o AJUSTES en Code.gs)');
+  if (!real) throw new Error('Falta configurar ADMIN_PIN');
+  revisarBloqueo('pin');
   if (String(pin || '').trim().toUpperCase() !== String(real).trim().toUpperCase()) {
-    Utilities.sleep(800); // frena intentos repetidos
-    const e = new Error('Clave incorrecta'); e.code = 'PIN'; throw e;
+    Utilities.sleep(800);
+    const quedan = sumarFallo('pin');
+    throw errorCod(quedan > 0 ? 'Clave incorrecta' : 'Demasiados intentos. Espera 15 minutos o usa "¿Olvidaste tu clave?"', quedan > 0 ? 'PIN' : 'BLOQ');
   }
+  cache().remove('fallos_pin');
+}
+
+function guardarClave(nueva) {
+  nueva = String(nueva || '').trim().toUpperCase();
+  if (!/^[A-Z0-9]+$/.test(nueva)) throw new Error('Usa solo letras y números');
+  if (nueva.length < MIN_CLAVE) throw new Error('La clave debe tener al menos ' + MIN_CLAVE + ' caracteres');
+  PropertiesService.getScriptProperties().setProperty('ADMIN_PIN', nueva);
+}
+
+function enviarCodigo() {
+  const c = cache();
+  revisarBloqueo('cod');
+  if (c.get('cod_espera')) return { ok: true, correo: ocultar(ajuste('ADMIN_EMAIL')) }; // ya se envió uno hace poco
+  const correo = ajuste('ADMIN_EMAIL');
+  if (!correo) throw new Error('No hay un correo configurado para recuperar la clave');
+  const cod = String(Math.floor(100000 + Math.random() * 900000));
+  c.put('cod_actual', cod, BLOQUEO_SEG);
+  c.put('cod_espera', '1', 60);
+  const tienda = (leerConfig().Nombre || 'tu tienda');
+  MailApp.sendEmail({
+    to: correo,
+    subject: 'Código para cambiar la clave de ' + tienda,
+    body: 'Tu código es: ' + cod + '\n\nEscríbelo en el panel de ' + tienda + ' para crear una clave nueva. Vence en 15 minutos.\n\nSi no lo pediste, ignora este correo: tu clave no cambia.'
+  });
+  return { ok: true, correo: ocultar(correo) };
+}
+
+function restablecer(codigo, nueva) {
+  const c = cache();
+  revisarBloqueo('cod');
+  const real = c.get('cod_actual');
+  if (!real || String(codigo || '').trim() !== real) {
+    Utilities.sleep(800);
+    const quedan = sumarFallo('cod');
+    if (quedan <= 0) c.remove('cod_actual');
+    throw errorCod(real ? 'Código incorrecto' : 'El código venció. Pide uno nuevo', 'COD');
+  }
+  guardarClave(nueva);
+  c.remove('cod_actual'); c.remove('fallos_cod'); c.remove('bloq_pin'); c.remove('fallos_pin');
+  return { ok: true };
+}
+
+function ocultar(correo) {
+  const m = String(correo).match(/^(.{2})[^@]*(@.*)$/);
+  return m ? m[1] + '•••' + m[2] : correo;
 }
 
 /* ======================= productos ======================= */
@@ -220,4 +290,5 @@ function autorizar() {
   leerConfig();
   const id = ajuste('FOTOS_FOLDER_ID');
   if (id) DriveApp.getFolderById(id).getName();
+  MailApp.getRemainingDailyQuota(); // permiso para enviar el código por correo
 }

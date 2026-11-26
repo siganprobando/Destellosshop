@@ -27,8 +27,8 @@
   /* ---------- navegación ---------- */
   function ver(id) {
     if (id === "vitrina") { abrirVitrina(); return; }
-    ["login", "vProductos", "vEditar", "vAjustes"].forEach(v => $("#" + v).classList.toggle("hide", v !== id));
-    $("#nav").classList.toggle("hide", id === "login" || id === "vEditar");
+    ["login", "vClave", "vProductos", "vEditar", "vAjustes"].forEach(v => $("#" + v).classList.toggle("hide", v !== id));
+    $("#nav").classList.toggle("hide", id === "login" || id === "vClave" || id === "vEditar");
     $$("#nav button").forEach(b => b.classList.toggle("on", b.dataset.v === id));
     window.scrollTo(0, 0);
     if (id === "vAjustes") pintarAjustes();
@@ -52,9 +52,9 @@
   $("#pinForm").onsubmit = e => { e.preventDefault(); entrar(); };
   async function entrar() {
     const pin = pinIn.value.trim().toUpperCase();
-    if (pin.length < 4) { $("#pinErr").textContent = "La clave tiene al menos 4 caracteres"; return; }
+    if (pin.length < 8) { $("#pinErr").textContent = "La clave tiene 8 caracteres o más"; return; }
     const btn = $("#pinGo");
-    try { await ocupado(btn, "Entrando…", () => A.entrar(pin)); pinIn.value = ""; await iniciar(); }
+    try { const r = await ocupado(btn, "Entrando…", () => A.entrar(pin)); pinIn.value = ""; await iniciar(); }
     catch (e) { $("#pinErr").textContent = e.message || "Clave incorrecta"; $(".lg-pin").classList.remove("shake"); void $(".lg-pin").offsetWidth; $(".lg-pin").classList.add("shake"); pinIn.select(); }
   }
 
@@ -206,6 +206,50 @@
       } catch (e) { toast(e.message || "No se pudo guardar", true); }
     });
   };
+  /* ---------- clave: crear (primer ingreso), cambiar, recuperar ---------- */
+  let KM = "cambiar";
+  const kMay = el => el.addEventListener("input", () => { const v = el.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (v !== el.value) el.value = v; $("#kErr").textContent = ""; });
+  [$("#kN1"), $("#kN2")].forEach(kMay);
+  function abrirClave(modo) {
+    KM = modo; $("#kN1").value = $("#kN2").value = $("#kCod").value = ""; $("#kErr").textContent = "";
+    const T = { forzar: ["Crea tu clave", "Por seguridad, cambia la clave temporal por una tuya. Mínimo 8 letras o números."],
+                cambiar: ["Cambiar mi clave", "Mínimo 8 letras o números. La usarás la próxima vez que entres."],
+                olvide: ["¿Olvidaste tu clave?", "Te mandamos un código al correo de la tienda para crear una nueva."] }[modo];
+    $("#kT").textContent = T[0]; $("#kP").textContent = T[1];
+    $("#kPaso1").classList.toggle("hide", modo !== "olvide"); $("#kCodF").classList.add("hide");
+    $("#kNuevas").classList.toggle("hide", modo === "olvide"); $("#kGo").classList.toggle("hide", modo === "olvide");
+    $("#kNo").classList.toggle("hide", modo === "forzar");
+    $("#kCorreoTx").textContent = "Te enviamos un código de 6 números al correo de la tienda.";
+    ver("vClave");
+  }
+  $("#olvBtn").onclick = () => abrirClave("olvide");
+  $("#kNo").onclick = () => KM === "olvide" ? ver("login") : ver("vAjustes");
+  $("#kEnviar").onclick = async () => {
+    try {
+      const r = await ocupado($("#kEnviar"), "Enviando…", () => A.olvide());
+      $("#kCorreoTx").textContent = "Listo. Revisa " + (r.correo || "tu correo") + " (también en Spam). El código vence en 15 minutos.";
+      $("#kCodF").classList.remove("hide"); $("#kNuevas").classList.remove("hide"); $("#kGo").classList.remove("hide");
+      $("#kEnviar").textContent = "Enviar otro código"; $("#kCod").focus();
+    } catch (e) { $("#kErr").textContent = e.message; }
+  };
+  $("#kForm").onsubmit = async e => {
+    e.preventDefault();
+    const n1 = $("#kN1").value.trim(), n2 = $("#kN2").value.trim();
+    if (KM === "olvide" && !/^\d{6}$/.test($("#kCod").value.trim())) { $("#kErr").textContent = "Escribe el código de 6 números"; return; }
+    if (n1.length < 8) { $("#kErr").textContent = "La clave debe tener al menos 8 caracteres"; return; }
+    if (n1 !== n2) { $("#kErr").textContent = "Las dos claves no coinciden"; return; }
+    try {
+      if (KM === "olvide") {
+        await ocupado($("#kGo"), "Guardando…", () => A.restablecer($("#kCod").value, n1));
+        await A.entrar(n1); toast("Clave nueva guardada"); await iniciar();
+      } else {
+        await ocupado($("#kGo"), "Guardando…", () => A.cambiarClave(n1));
+        toast("Clave guardada. Úsala la próxima vez que entres");
+        if (KM === "forzar") await iniciar(); else ver("vAjustes");
+      }
+    } catch (err) { $("#kErr").textContent = err.message || "No se pudo guardar"; }
+  };
+
   $("#aSalir").onclick = () => { A.salir(); ver("login"); };
   $("#aReset").onclick = () => confirmar("¿Reiniciar la vista previa?", "Se borran los cambios de prueba y vuelve la copia original del catálogo.", async () => { A.reiniciarDemo(); await iniciar(); toast("Vista previa reiniciada"); });
 
@@ -213,7 +257,7 @@
   async function iniciar() {
     ver("vProductos"); $("#list").innerHTML = '<div class="skel"></div>'.repeat(5);
     try { D = await A.cargar(); marca(); pintarChips(); pintarLista(); }
-    catch (e) { if (e.code === "PIN") { A.salir(); ver("login"); $("#pinErr").textContent = "Vuelve a escribir tu clave"; return; } $("#list").innerHTML = `<div class="empty">No pudimos cargar tu catálogo.<br><small>${esc(e.message)}</small></div>`; }
+    catch (e) { if (e.code === "PIN" || e.code === "BLOQ") { A.salir(); ver("login"); $("#pinErr").textContent = "Vuelve a escribir tu clave"; return; } $("#list").innerHTML = `<div class="empty">No pudimos cargar tu catálogo.<br><small>${esc(e.message)}</small></div>`; }
   }
   marca();
   if (A.sesion()) iniciar(); else ver("login");

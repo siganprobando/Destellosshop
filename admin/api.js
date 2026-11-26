@@ -76,7 +76,23 @@
       pin = String(pin || "").trim().toUpperCase();
       if (DEMO) { await demo.pausa(300); if (pin !== String(C.pin || "").trim().toUpperCase()) throw new Error("Clave incorrecta"); localStorage.setItem(PINKEY, pin); return true; }
       localStorage.setItem(PINKEY, pin);
-      try { await llamar("ping"); return true; } catch (e) { localStorage.removeItem(PINKEY); throw e; }
+      try { const j = await llamar("ping"); return { cambiar: !!j.cambiar }; } catch (e) { localStorage.removeItem(PINKEY); throw e; }
+    },
+
+    // Clave: cambiar (con sesión), pedir código al correo y restablecer (sin sesión)
+    async cambiarClave(nueva) {
+      nueva = String(nueva || "").trim().toUpperCase();
+      if (DEMO) { await demo.pausa(); C.pin = nueva; localStorage.setItem(PINKEY, nueva); return true; }
+      await llamar("clave", { nueva }); localStorage.setItem(PINKEY, nueva); return true;
+    },
+    async olvide() {
+      if (DEMO) { await demo.pausa(); return { correo: "pr•••@gmail.com (vista previa: el código es 123456)" }; }
+      return await llamar("olvide", {});
+    },
+    async restablecer(codigo, nueva) {
+      nueva = String(nueva || "").trim().toUpperCase();
+      if (DEMO) { await demo.pausa(); if (String(codigo).trim() !== "123456") throw new Error("Código incorrecto"); C.pin = nueva; return true; }
+      await llamar("restablecer", { codigo: String(codigo || "").trim(), nueva }); return true;
     },
     sesion() { return !!localStorage.getItem(PINKEY); },
     salir() { localStorage.removeItem(PINKEY); },

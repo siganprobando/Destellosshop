@@ -1,6 +1,6 @@
 /* Service worker del Panel: guarda la app para que abra rápido y sin señal.
    Los datos (Apps Script) y las fotos (Drive) siempre se piden en línea. */
-const V = "destellos-panel-v2";
+const V = "destellos-panel-v3";
 const APP = ["./", "index.html", "app.js", "api.js", "config.js", "manifest.json", "assets/fonts.css", "assets/logo.png", "assets/icon-192.png", "assets/icon-512.png",
   "assets/fonts/Poppins-400.woff2", "assets/fonts/Poppins-500.woff2", "assets/fonts/Poppins-600.woff2", "assets/fonts/Poppins-700.woff2", "assets/fonts/PlayfairDisplay-700.woff2", "assets/fonts/PlayfairDisplay-800.woff2"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(APP)).then(() => self.skipWaiting())); });
