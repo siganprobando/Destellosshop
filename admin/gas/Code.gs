@@ -39,7 +39,7 @@ const CONFIG_EDITABLE = ['Nombre', 'WhatsApp', 'Lema', 'Envíos', 'Insignia', 'L
 function doGet(e) {
   return responder(() => {
     const p = (e && e.parameter) || {};
-    revisarPin(p.pin);
+    revisarPin(p.pin, p.correo);
     if (p.accion === 'ping') return { ok: true, cambiar: String(ajuste('ADMIN_PIN')).trim().length < MIN_CLAVE };
     if (p.accion === 'listar') return { ok: true, config: leerConfig(), productos: leerProductos() };
     throw new Error('Acción desconocida');
@@ -52,7 +52,7 @@ function doPost(e) {
     // Acciones SIN clave: recuperar por correo
     if (d.accion === 'olvide') return enviarCodigo();
     if (d.accion === 'restablecer') return restablecer(d.codigo, d.nueva);
-    revisarPin(d.pin);
+    revisarPin(d.pin, d.correo);
     const lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
@@ -94,14 +94,15 @@ function sumarFallo(tipo) {
   return MAX_FALLOS - n;
 }
 
-function revisarPin(pin) {
-  const real = ajuste('ADMIN_PIN');
+function revisarPin(pin, correo) {
+  const real = ajuste('ADMIN_PIN'), mail = String(ajuste('ADMIN_EMAIL')).trim().toLowerCase();
   if (!real) throw new Error('Falta configurar ADMIN_PIN');
   revisarBloqueo('pin');
-  if (String(pin || '').trim().toUpperCase() !== String(real).trim().toUpperCase()) {
+  const okCorreo = !mail || String(correo || '').trim().toLowerCase() === mail;
+  if (!okCorreo || String(pin || '').trim().toUpperCase() !== String(real).trim().toUpperCase()) {
     Utilities.sleep(800);
     const quedan = sumarFallo('pin');
-    throw errorCod(quedan > 0 ? 'Clave incorrecta' : 'Demasiados intentos. Espera 15 minutos o usa "¿Olvidaste tu clave?"', quedan > 0 ? 'PIN' : 'BLOQ');
+    throw errorCod(quedan > 0 ? 'Correo o clave incorrectos' : 'Demasiados intentos. Espera 15 minutos o usa "¿Olvidaste tu clave?"', quedan > 0 ? 'PIN' : 'BLOQ');
   }
   cache().remove('fallos_pin');
 }

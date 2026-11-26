@@ -51,10 +51,11 @@
   $("#pinEye").onclick = () => { const ver = pinIn.type === "password"; pinIn.type = ver ? "text" : "password"; $("#pinEye").classList.toggle("on", ver); $("#pinEye").setAttribute("aria-label", ver ? "Ocultar clave" : "Mostrar clave"); pinIn.focus(); };
   $("#pinForm").onsubmit = e => { e.preventDefault(); entrar(); };
   async function entrar() {
-    const pin = pinIn.value.trim().toUpperCase();
+    const pin = pinIn.value.trim().toUpperCase(), correo = $("#mailIn").value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { $("#pinErr").textContent = "Escribe tu correo"; return; }
     if (pin.length < 8) { $("#pinErr").textContent = "La clave tiene 8 caracteres o más"; return; }
     const btn = $("#pinGo");
-    try { const r = await ocupado(btn, "Entrando…", () => A.entrar(pin)); pinIn.value = ""; await iniciar(); }
+    try { const r = await ocupado(btn, "Entrando…", () => A.entrar(pin, correo)); pinIn.value = ""; await iniciar(); }
     catch (e) { $("#pinErr").textContent = e.message || "Clave incorrecta"; $(".lg-pin").classList.remove("shake"); void $(".lg-pin").offsetWidth; $(".lg-pin").classList.add("shake"); pinIn.select(); }
   }
 
@@ -241,7 +242,7 @@
     try {
       if (KM === "olvide") {
         await ocupado($("#kGo"), "Guardando…", () => A.restablecer($("#kCod").value, n1));
-        await A.entrar(n1); toast("Clave nueva guardada"); await iniciar();
+        ver("login"); toast("Clave nueva guardada. Entra con tu correo y la clave nueva");
       } else {
         await ocupado($("#kGo"), "Guardando…", () => A.cambiarClave(n1));
         toast("Clave guardada. Úsala la próxima vez que entres");
@@ -257,9 +258,10 @@
   async function iniciar() {
     ver("vProductos"); $("#list").innerHTML = '<div class="skel"></div>'.repeat(5);
     try { D = await A.cargar(); marca(); pintarChips(); pintarLista(); }
-    catch (e) { if (e.code === "PIN" || e.code === "BLOQ") { A.salir(); ver("login"); $("#pinErr").textContent = "Vuelve a escribir tu clave"; return; } $("#list").innerHTML = `<div class="empty">No pudimos cargar tu catálogo.<br><small>${esc(e.message)}</small></div>`; }
+    catch (e) { if (e.code === "PIN" || e.code === "BLOQ") { A.salir(); ver("login"); $("#mailIn").value = A.correo(); $("#pinErr").textContent = "Vuelve a escribir tu clave"; return; } $("#list").innerHTML = `<div class="empty">No pudimos cargar tu catálogo.<br><small>${esc(e.message)}</small></div>`; }
   }
   marca();
+  $("#mailIn").value = A.correo();
   if (A.sesion()) iniciar(); else ver("login");
   if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
 

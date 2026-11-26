@@ -12,7 +12,7 @@
   const C = window.PANEL_CONFIG || {};
   const DEMO = !C.apiUrl;
   const LS = "panel_demo_" + (C.tienda || "tienda").toLowerCase().replace(/\W+/g, "_");
-  const PINKEY = LS + "_pin";
+  const PINKEY = LS + "_pin", MAILKEY = LS + "_correo";
 
   /* ---------- utilidades ---------- */
   const driveId = u => { const m = String(u || "").match(/(?:\/d\/|[?&]id=)([\w-]{20,})/); return m ? m[1] : ""; };
@@ -54,13 +54,13 @@
 
   /* ---------- modo real ---------- */
   async function llamar(accion, datos) {
-    const pin = localStorage.getItem(PINKEY) || "";
+    const pin = localStorage.getItem(PINKEY) || "", correo = localStorage.getItem(MAILKEY) || "";
     let r;
     if (!datos) {
-      r = await fetch(`${C.apiUrl}?accion=${encodeURIComponent(accion)}&pin=${encodeURIComponent(pin)}&t=${Date.now()}`);
+      r = await fetch(`${C.apiUrl}?accion=${encodeURIComponent(accion)}&pin=${encodeURIComponent(pin)}&correo=${encodeURIComponent(correo)}&t=${Date.now()}`);
     } else {
       // text/plain evita el "preflight" CORS que Apps Script no responde
-      r = await fetch(C.apiUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ accion, pin, ...datos }) });
+      r = await fetch(C.apiUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ accion, pin, correo, ...datos }) });
     }
     if (!r.ok) throw new Error("El servidor no respondió (" + r.status + ")");
     const j = await r.json();
@@ -72,9 +72,11 @@
     demo: DEMO,
     imagen, comprimir, driveId,
 
-    async entrar(pin) {
+    async entrar(pin, correo) {
       pin = String(pin || "").trim().toUpperCase();
-      if (DEMO) { await demo.pausa(300); if (pin !== String(C.pin || "").trim().toUpperCase()) throw new Error("Clave incorrecta"); localStorage.setItem(PINKEY, pin); return true; }
+      correo = String(correo || localStorage.getItem(MAILKEY) || "").trim().toLowerCase();
+      localStorage.setItem(MAILKEY, correo);
+      if (DEMO) { await demo.pausa(300); if (pin !== String(C.pin || "").trim().toUpperCase()) throw new Error("Correo o clave incorrectos"); localStorage.setItem(PINKEY, pin); return true; }
       localStorage.setItem(PINKEY, pin);
       try { const j = await llamar("ping"); return { cambiar: !!j.cambiar }; } catch (e) { localStorage.removeItem(PINKEY); throw e; }
     },
@@ -94,6 +96,7 @@
       if (DEMO) { await demo.pausa(); if (String(codigo).trim() !== "123456") throw new Error("Código incorrecto"); C.pin = nueva; return true; }
       await llamar("restablecer", { codigo: String(codigo || "").trim(), nueva }); return true;
     },
+    correo() { return localStorage.getItem(MAILKEY) || ""; },
     sesion() { return !!localStorage.getItem(PINKEY); },
     salir() { localStorage.removeItem(PINKEY); },
 
