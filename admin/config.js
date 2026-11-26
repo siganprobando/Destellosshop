@@ -7,7 +7,7 @@ window.PANEL_CONFIG = {
   tienda: "Destellos Shop",
   // URL de la implementación de Apps Script (termina en /exec).
   // Vacía ("") = MODO DEMO con una copia de solo lectura del catálogo.
-  apiUrl: "",
+  apiUrl: "https://script.google.com/macros/s/AKfycbwksbyXc7Z2eqo-fGCNHBwM9z4w8bHnhcr59MUOVI3JsViEIlyIopwzCIm5CGqZvFM/exec",
   // Clave SOLO para el modo demo (apiUrl vacía). En modo real no se usa.
   pin: "1234",
   vitrinaUrl: "https://siganprobando.github.io/Destellosshop/",
